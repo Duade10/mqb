@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mrhost
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  api:
+    build: .
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/mrhost
+      - SECRET_KEY=super-secret
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - QR_TOKEN_EXPIRE_MINUTES=1440
+      - JWT_ALGORITHM=HS256
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+volumes:
+  pgdata:

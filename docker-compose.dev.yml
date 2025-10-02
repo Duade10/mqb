@@ -1,0 +1,14 @@
+services:
+  api:
+    build: .
+    environment:
+      - SQLITE_URL=sqlite:///./app.db
+      - SECRET_KEY=change-me
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - QR_TOKEN_EXPIRE_MINUTES=1440
+      - JWT_ALGORITHM=HS256
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
