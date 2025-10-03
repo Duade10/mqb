@@ -1,5 +1,11 @@
 from app.models.base import Base
 from app.models.entities import (
+    AdminAuditLog,
+    AdminInvite,
+    AdminPasswordResetToken,
+    AdminRecoveryCode,
+    AdminRefreshToken,
+    AdminRoleEnum,
     AdminUser,
     ConsentLog,
     ConsentTemplate,
@@ -14,6 +20,12 @@ from app.models.entities import (
 
 __all__ = [
     "Base",
+    "AdminAuditLog",
+    "AdminInvite",
+    "AdminPasswordResetToken",
+    "AdminRecoveryCode",
+    "AdminRefreshToken",
+    "AdminRoleEnum",
     "AdminUser",
     "ConsentLog",
     "ConsentTemplate",

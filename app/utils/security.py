@@ -1,13 +1,15 @@
+import base64
+import secrets
+import string
 from datetime import datetime, timedelta
+from hashlib import pbkdf2_hmac, sha256
 from typing import Any, Dict
 
 import jwt
-from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 settings = get_settings()
 
 
@@ -22,8 +24,34 @@ def create_access_token(data: Dict[str, Any], expires_delta: timedelta | None = 
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    decoded = base64.b64decode(hashed_password.encode("utf-8"))
+    salt = decoded[:16]
+    stored_hash = decoded[16:]
+    new_hash = pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt, 120000)
+    return secrets.compare_digest(new_hash, stored_hash)
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = secrets.token_bytes(16)
+    hashed = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+    return base64.b64encode(salt + hashed).decode("utf-8")
+
+
+def hash_token(token: str) -> str:
+    return sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_refresh_token(length: int | None = None) -> str:
+    alphabet = string.ascii_letters + string.digits
+    token_length = length or settings.refresh_token_length
+    return "".join(secrets.choice(alphabet) for _ in range(token_length))
+
+
+def password_meets_policy(password: str) -> bool:
+    if len(password) < 12:
+        return False
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    has_symbol = any(c in string.punctuation for c in password)
+    return has_upper and has_lower and has_digit and has_symbol
