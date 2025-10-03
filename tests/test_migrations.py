@@ -24,4 +24,4 @@ def test_migrations_postgres_offline():
     os.environ["DATABASE_URL"] = "postgresql+psycopg://user:pass@localhost:5432/db"
     cfg = _make_config()
     command.upgrade(cfg, "head", sql=True)
-    command.downgrade(cfg, "base", sql=True)
+    command.downgrade(cfg, "head:base", sql=True)

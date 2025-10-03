@@ -2,8 +2,11 @@ from datetime import datetime
 
 import jwt
 import pytest
-from fastapi.testclient import TestClient
+import uuid
+
 from sqlalchemy.orm import Session
+
+from tests.conftest import SimpleTestClient
 
 from app.core.config import get_settings
 from app.models import (
@@ -22,7 +25,8 @@ settings = get_settings()
 
 
 def _create_listing(db: Session) -> Listing:
-    listing = Listing(name="Test Listing", slug="test-listing")
+    slug = f"test-listing-{uuid.uuid4().hex[:8]}"
+    listing = Listing(name="Test Listing", slug=slug)
     db.add(listing)
     db.commit()
     db.refresh(listing)
@@ -89,7 +93,7 @@ def test_qr_token_signing_and_validation(db_session: Session):
     assert decoded["listing_id"] == listing.id
 
 
-def test_consent_submission_with_stale_version(client: TestClient, db_session: Session):
+def test_consent_submission_with_stale_version(client: SimpleTestClient, db_session: Session):
     listing = _create_listing(db_session)
     template = _create_published_consent(db_session, listing)
 
@@ -106,7 +110,7 @@ def test_consent_submission_with_stale_version(client: TestClient, db_session: S
     assert response.status_code == 409
 
 
-def test_consent_submission_success(client: TestClient, db_session: Session):
+def test_consent_submission_success(client: SimpleTestClient, db_session: Session):
     listing = _create_listing(db_session)
     template = _create_published_consent(db_session, listing)
     payload = {
@@ -128,7 +132,7 @@ def test_consent_submission_success(client: TestClient, db_session: Session):
     assert log.template_version == template.version
 
 
-def test_faq_and_tutorial_language_fallback(client: TestClient, db_session: Session):
+def test_faq_and_tutorial_language_fallback(client: SimpleTestClient, db_session: Session):
     listing = _create_listing(db_session)
     _create_published_consent(db_session, listing)
     _create_guide_content(db_session, listing)

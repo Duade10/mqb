@@ -11,12 +11,12 @@ from app.models import AdminUser
 from app.utils.security import verify_password
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/admin/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/admin/auth/login")
 settings = get_settings()
 
 
-def authenticate_admin(db: Session, username: str, password: str) -> Optional[AdminUser]:
-    user = db.query(AdminUser).filter(AdminUser.username == username).first()
+def authenticate_admin(db: Session, email: str, password: str) -> Optional[AdminUser]:
+    user = db.query(AdminUser).filter(AdminUser.email == email).first()
     if not user or not user.is_active:
         return None
     if not verify_password(password, user.hashed_password):
@@ -34,12 +34,15 @@ def get_current_admin(
     )
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
-        username: str | None = payload.get("sub")
-        if username is None:
+        user_id: str | None = payload.get("sub")
+        pwd_marker: str | None = payload.get("pwd")
+        if user_id is None:
             raise credentials_exception
     except jwt.PyJWTError as exc:  # type: ignore[attr-defined]
         raise credentials_exception from exc
-    user = db.query(AdminUser).filter(AdminUser.username == username).first()
+    user = db.query(AdminUser).filter(AdminUser.id == int(user_id)).first()
     if user is None or not user.is_active:
+        raise credentials_exception
+    if pwd_marker and user.password_changed_at.isoformat() != pwd_marker:
         raise credentials_exception
     return user
