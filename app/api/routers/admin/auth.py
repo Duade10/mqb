@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from json import JSONDecodeError
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import authenticate_admin, get_current_admin
@@ -107,6 +108,43 @@ def _validate_password(password: str) -> None:
         )
 
 
+async def _resolve_login_payload(
+    request: Request,
+    email: str | None = Form(None),
+    username: str | None = Form(None, alias="username"),
+    password: str | None = Form(None),
+    totp_code: str | None = Form(None),
+    recovery_code: str | None = Form(None),
+) -> LoginRequest:
+    content_type = request.headers.get("content-type", "")
+    expects_form = "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type
+    form_email = email or username
+
+    if expects_form or form_email is not None or password is not None or totp_code is not None or recovery_code is not None:
+        if not form_email or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email and password are required",
+            )
+
+        return LoginRequest(
+            email=form_email,
+            password=password,
+            totp_code=totp_code,
+            recovery_code=recovery_code,
+        )
+
+    try:
+        payload = await request.json()
+    except JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid JSON payload",
+        ) from exc
+
+    return LoginRequest(**payload)
+
+
 @router.post(
     "/admin/auth/bootstrap",
     response_model=BootstrapResponse,
@@ -137,9 +175,9 @@ def bootstrap_admin(db: Session = Depends(get_db)) -> BootstrapResponse:
     response_model=TokenPair,
     dependencies=[Depends(rate_limiter.limit("login", settings.login_rate_limit, settings.rate_limit_window_seconds))],
 )
-def login_for_tokens(
-    payload: LoginRequest,
+async def login_for_tokens(
     request: Request,
+    payload: LoginRequest = Depends(_resolve_login_payload),
     db: Session = Depends(get_db),
 ) -> TokenPair:
     user = authenticate_admin(db, payload.email.lower(), payload.password)
