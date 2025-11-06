@@ -5,11 +5,13 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models import Listing
 from app.services.qr import create_qr_token
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
+settings = get_settings()
 
 
 @router.post("/admin/listings/{listing_id}/qr", tags=["Admin"])
@@ -29,9 +31,16 @@ def get_listing_qr_image(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
 
-    consent_url = request.url_for("get_consent_template", listing_id=listing.id)
+    base_url = (settings.public_frontend_base_url or "").rstrip("/")
+    if base_url:
+        listing_url = f"{base_url}/public/listings/{listing.id}"
+    else:
+        listing_url = str(
+            request.url_for("get_consent_template", listing_id=listing.id)
+        ).rsplit("/consent", 1)[0]
+
     qr_url = (
         "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
-        f"{quote(str(consent_url), safe='')}"
+        f"{quote(listing_url, safe='')}"
     )
     return RedirectResponse(url=qr_url)

@@ -2,6 +2,7 @@ from urllib.parse import urlparse, parse_qs
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models import AdminRoleEnum, AdminUser
 from app.schemas.listing import ListingOut
 from app.utils.security import get_password_hash
@@ -40,4 +41,6 @@ def test_admin_can_generate_listing_qr_link(
     parsed = urlparse(location)
     params = parse_qs(parsed.query)
     assert "data" in params
-    assert params["data"][0].endswith(f"/public/listings/{listing.id}/consent")
+    settings = get_settings()
+    expected_base = (settings.public_frontend_base_url or "").rstrip("/")
+    assert params["data"][0] == f"{expected_base}/public/listings/{listing.id}"
