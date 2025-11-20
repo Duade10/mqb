@@ -25,5 +25,7 @@ def resolve_qr(token: str, db: Session = Depends(get_db)) -> Response:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
     base_url = (settings.public_frontend_base_url or "").rstrip("/")
     listing_path = f"/public/listings/{listing.id}"
+    if payload.get("require_consent", True):
+        listing_path = f"{listing_path}?require_consent=true"
     redirect_url = f"{base_url}{listing_path}" if base_url else listing_path
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)

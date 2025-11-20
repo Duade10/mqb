@@ -4,10 +4,11 @@ FastAPI backend that powers the MrHost Guest QR → Consent → Guide flow. It e
 
 ## Features
 
-- QR token generation and validation for listings.
+- QR token generation and validation for listings with per-code consent toggles.
 - Versioned, multi-language consent templates with publish workflow.
-- Guest consent logging with IP/user agent metadata.
-- Localized FAQs and tutorial videos with language fallback to English.
+- Guest consent logging with email capture plus IP/user agent metadata.
+- Localized FAQs (with optional links) and tutorial videos with language fallback to English.
+- Optional page descriptions for listing overviews with translation support.
 - JWT-protected admin APIs for managing listings, content, and consent logs.
 - Health check endpoint for monitoring.
 

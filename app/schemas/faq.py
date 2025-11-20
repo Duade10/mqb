@@ -4,10 +4,16 @@ from typing import Optional
 from pydantic import BaseModel, HttpUrl
 
 
+class FAQLink(BaseModel):
+    label: str
+    url: HttpUrl
+
+
 class FAQTranslationBase(BaseModel):
     language_code: str
     question: str
     answer: str
+    links: list[FAQLink] | None = None
 
 
 class FAQTranslationCreate(FAQTranslationBase):

@@ -18,6 +18,7 @@ def _sync_faq_translations(faq: FAQ, translations: list[dict], db: Session) -> N
         if code in existing:
             existing[code].question = translation["question"]
             existing[code].answer = translation["answer"]
+            existing[code].links = translation.get("links")
         else:
             db.add(
                 FAQTranslation(
@@ -25,6 +26,7 @@ def _sync_faq_translations(faq: FAQ, translations: list[dict], db: Session) -> N
                     language_code=code,
                     question=translation["question"],
                     answer=translation["answer"],
+                    links=translation.get("links"),
                 )
             )
     for code, translation in existing.items():

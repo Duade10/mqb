@@ -18,6 +18,10 @@ from sqlalchemy.types import JSON
 from app.models.base import Base
 
 
+def json_type():
+    return JSON
+
+
 class TimestampMixin:
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(
@@ -36,6 +40,11 @@ class Listing(Base, TimestampMixin):
     tutorials = relationship("Tutorial", back_populates="listing", cascade="all, delete-orphan")
     consent_templates = relationship(
         "ConsentTemplate", back_populates="listing", cascade="all, delete-orphan"
+    )
+    page_descriptions = relationship(
+        "PageDescription",
+        back_populates="listing",
+        cascade="all, delete-orphan",
     )
 
 
@@ -103,6 +112,7 @@ class FAQTranslation(Base, TimestampMixin):
     language_code = Column(String(10), nullable=False)
     question = Column(String(255), nullable=False)
     answer = Column(Text, nullable=False)
+    links = Column(json_type(), nullable=True)
 
     faq = relationship("FAQ", back_populates="translations")
 
@@ -153,16 +163,47 @@ class ConsentLog(Base, TimestampMixin):
     template_version = Column(Integer, nullable=False)
     language_code = Column(String(10), nullable=False)
     decision = Column(String(10), nullable=False)
+    email = Column(String(255), nullable=True)
     ip_address = Column(String(255), nullable=True)
     user_agent = Column(String(500), nullable=True)
 
     template = relationship("ConsentTemplate", back_populates="logs")
 
 
-def json_type():
-    return JSON
+class PageDescription(Base, TimestampMixin):
+    __tablename__ = "page_descriptions"
+
+    id = Column(Integer, primary_key=True)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    listing = relationship("Listing", back_populates="page_descriptions")
+    translations = relationship(
+        "PageDescriptionTranslation",
+        back_populates="page_description",
+        cascade="all, delete-orphan",
+    )
 
 
+class PageDescriptionTranslation(Base, TimestampMixin):
+    __tablename__ = "page_description_translations"
+
+    id = Column(Integer, primary_key=True)
+    page_description_id = Column(
+        Integer, ForeignKey("page_descriptions.id", ondelete="CASCADE"), nullable=False
+    )
+    language_code = Column(String(10), nullable=False)
+    body = Column(Text, nullable=False)
+
+    page_description = relationship("PageDescription", back_populates="translations")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "page_description_id",
+            "language_code",
+            name="uq_page_description_language",
+        ),
+    )
 class AdminRoleEnum(str, Enum):
     SUPERADMIN = "superadmin"
     ADMIN = "admin"

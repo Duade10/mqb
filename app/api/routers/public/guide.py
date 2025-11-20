@@ -2,7 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import FAQ, FAQTranslation, Listing, Tutorial, TutorialTranslation
+from app.models import (
+    FAQ,
+    FAQTranslation,
+    Listing,
+    PageDescription,
+    PageDescriptionTranslation,
+    Tutorial,
+    TutorialTranslation,
+)
 
 router = APIRouter()
 
@@ -58,6 +66,7 @@ def get_faqs(listing_id: int, language: str = "en", db: Session = Depends(get_db
                 "id": faq.id,
                 "question": tr.question,
                 "answer": tr.answer,
+                "links": tr.links,
                 "language_code": tr.language_code,
             }
         )
@@ -89,6 +98,40 @@ def get_tutorials(listing_id: int, language: str = "en", db: Session = Depends(g
                 "description": tr.description,
                 "video_url": tr.video_url,
                 "thumbnail_url": tr.thumbnail_url,
+                "language_code": tr.language_code,
+            }
+        )
+    return {"items": data}
+
+
+@router.get("/public/listings/{listing_id}/page-descriptions", tags=["Public"])
+def get_page_descriptions(
+    listing_id: int, language: str = "en", db: Session = Depends(get_db)
+):
+    listing = db.query(Listing).filter(Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    descriptions = (
+        db.query(PageDescription)
+        .filter(PageDescription.listing_id == listing_id, PageDescription.is_active.is_(True))
+        .all()
+    )
+    ids = [description.id for description in descriptions]
+    translations = _with_language_fallback(
+        db, PageDescriptionTranslation, "page_description_id", ids, language
+    )
+    translation_map = {}
+    for translation in translations:
+        translation_map.setdefault(getattr(translation, "page_description_id"), translation)
+    data = []
+    for description in descriptions:
+        tr = translation_map.get(description.id)
+        if not tr:
+            continue
+        data.append(
+            {
+                "id": description.id,
+                "body": tr.body,
                 "language_code": tr.language_code,
             }
         )
