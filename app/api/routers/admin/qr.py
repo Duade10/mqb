@@ -8,24 +8,34 @@ from app.api.deps import get_current_admin
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models import Listing
+from app.schemas.qr import ListingQRCreate, ListingQRTokenOut
 from app.services.qr import create_qr_token
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 settings = get_settings()
 
 
-@router.post("/admin/listings/{listing_id}/qr", tags=["Admin"])
-def generate_listing_qr(listing_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
+@router.post(
+    "/admin/listings/{listing_id}/qr",
+    response_model=ListingQRTokenOut,
+    tags=["Admin"],
+)
+def generate_listing_qr(
+    listing_id: int, payload: ListingQRCreate, db: Session = Depends(get_db)
+) -> ListingQRTokenOut:
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-    token = create_qr_token(listing.id)
-    return {"token": token}
+    token = create_qr_token(listing.id, require_consent=payload.require_consent)
+    return {"token": token, "require_consent": payload.require_consent}
 
 
 @router.get("/admin/listings/{listing_id}/qr", tags=["Admin"])
 def get_listing_qr_image(
-    listing_id: int, request: Request, db: Session = Depends(get_db)
+    listing_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    require_consent: bool = True,
 ) -> RedirectResponse:
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
@@ -38,6 +48,8 @@ def get_listing_qr_image(
         listing_url = str(
             request.url_for("get_consent_template", listing_id=listing.id)
         ).rsplit("/consent", 1)[0]
+    if require_consent:
+        listing_url = f"{listing_url}?require_consent=true"
 
     qr_url = (
         "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="

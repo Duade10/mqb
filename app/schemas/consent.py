@@ -55,6 +55,7 @@ class ConsentDecisionCreate(BaseModel):
     template_version: int
     language_code: str
     decision: str
+    email: str
 
 
 class ConsentDecisionOut(BaseModel):
@@ -62,6 +63,8 @@ class ConsentDecisionOut(BaseModel):
     template_version: int
     decision: str
     language_code: str
+    email: str | None
+    ip_address: str | None
     created_at: datetime
 
     class Config:

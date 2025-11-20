@@ -59,26 +59,27 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
 
 ### 1.4 Consent submission
 1. When the guest acts, `POST /public/listings/{listing_id}/consent` with body:
-   ```json
-   {
-     "template_id": 123,
-     "template_version": 4,
-     "language_code": "es",
-     "decision": "accept" | "decline"
-   }
-   ```
-2. The API validates that the submitted template matches the current published version, captures IP address and `User-Agent`, and persists the log.
-3. Success returns the stored record with `id`, `template_version`, `decision`, `language_code`, and `created_at` fields.
+    ```json
+    {
+      "template_id": 123,
+      "template_version": 4,
+      "language_code": "es",
+      "decision": "accept" | "decline",
+      "email": "guest@example.com"
+    }
+    ```
+2. The API validates that the submitted template matches the current published version, captures the supplied email plus IP address and `User-Agent`, and persists the log.
+3. Success returns the stored record with `id`, `template_version`, `decision`, `language_code`, `email`, `ip_address`, and `created_at` fields.
 4. Error handling:
    - `400 Invalid template` when the template ID does not match the latest published draft.
    - `409 Template version is stale` when the client is behind—re-fetch the template and re-render.
 
-### 1.5 In-stay guide (FAQs & tutorials)
+### 1.5 In-stay guide (FAQs, tutorials, descriptions)
 1. Load FAQs: `GET /public/listings/{listing_id}/faqs?language={code}`
-   - Only FAQs marked active are returned. The backend will fall back to English per item when a translation is missing.
+   - Only FAQs marked active are returned. The backend will fall back to English per item when a translation is missing and returns any translation-specific `links` payload.
    - Response:
      ```json
-     {"items": [{"id": 1, "question": "...", "answer": "...", "language_code": "es"}]}
+     {"items": [{"id": 1, "question": "...", "answer": "...", "links": [{"label": "Help", "url": "https://..."}], "language_code": "es"}]}
      ```
 2. Load tutorials: `GET /public/listings/{listing_id}/tutorials?language={code}`
    - Same fallback behavior; only active tutorials are included.
@@ -97,7 +98,9 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
        ]
      }
      ```
-3. Shared errors: `404 Listing not found` if the listing context is invalid.
+3. Load page descriptions: `GET /public/listings/{listing_id}/page-descriptions?language={code}`
+   - Optional long-form copy (welcome text, house rules, etc.) with the same language fallback behavior.
+4. Shared errors: `404 Listing not found` if the listing context is invalid.
 
 ---
 
@@ -158,7 +161,7 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
    - `DELETE /admin/listings/{id}` to remove (fails with `404` if not found).
 
 2. **QR tokens**
-   - `POST /admin/listings/{listing_id}/qr` to mint a signed JWT for embedding in printed codes.
+   - `POST /admin/listings/{listing_id}/qr` to mint a signed JWT for embedding in printed codes. Payload includes `require_consent` to differentiate door (consent) vs. internal (no consent) QR codes.
 
 3. **Consent templates**
    - Create new version: `POST /admin/listings/{listing_id}/consent-templates` with translations array; auto-increments version and starts in `draft` status.
@@ -166,7 +169,7 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
    - List history: `GET /admin/listings/{listing_id}/consent-templates` ordered by newest version first.
 
 4. **FAQs**
-   - `POST /admin/faqs` to create (includes `listing_id`, `is_active`, and translations).
+   - `POST /admin/faqs` to create (includes `listing_id`, `is_active`, and translations) with optional per-translation `links` entries `{ "label", "url" }`.
    - `PUT /admin/faqs/{faq_id}` to toggle active flag or replace translation set.
    - `GET /admin/listings/{listing_id}/faqs` to review.
    - `DELETE /admin/faqs/{faq_id}` to remove.
@@ -174,10 +177,16 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
 5. **Tutorials**
    - `POST /admin/tutorials`, `PUT /admin/tutorials/{id}`, `GET /admin/listings/{listing_id}/tutorials`, `DELETE /admin/tutorials/{id}` with similar semantics to FAQs but translation entries include `title`, `description`, `video_url`, and optional `thumbnail_url`.
 
+6. **Page descriptions**
+   - `POST /admin/page-descriptions` to create long-form listing copy (optional) with translations.
+   - `PUT /admin/page-descriptions/{id}` to toggle `is_active` or replace translations.
+   - `GET /admin/listings/{listing_id}/page-descriptions` to review.
+   - `DELETE /admin/page-descriptions/{id}` to remove.
+
 ### 2.4 Audit and reporting
 
 - **Consent logs**
-  - `GET /admin/consent-logs` supports filters `listing_id`, `language`, `decision`, `start`, and `end`. Returns each log with the metadata captured during submission (IP, user-agent, timestamp).
+  - `GET /admin/consent-logs` supports filters `listing_id`, `language`, `decision`, `start`, and `end`. Returns each log with the metadata captured during submission (email, IP, user-agent, timestamp).
 
 These endpoints power the admin dashboard’s reporting views and compliance exports.
 
@@ -188,6 +197,6 @@ These endpoints power the admin dashboard’s reporting views and compliance exp
 - Every admin router declares `Depends(get_current_admin)`; the frontend must send the `Authorization: Bearer {access_token}` header with each request.
 - Access token expiration is driven by `ACCESS_TOKEN_EXPIRE_MINUTES`; the UI should preemptively call refresh before expiry to avoid 401s.
 - When a refresh token is compromised or expires, the backend revokes the entire token family to prevent reuse. Always replace stored refresh tokens after each successful refresh call.
-- Translation sync endpoints (`consent-templates`, `faqs`, `tutorials`) treat the submitted set as the source of truth: omitted language codes are deleted from the database.
+- Translation sync endpoints (`consent-templates`, `faqs`, `tutorials`, `page-descriptions`) treat the submitted set as the source of truth: omitted language codes are deleted from the database.
 
 Use this document as the contract reference when wiring the SPA(s) or automated tests against the backend.

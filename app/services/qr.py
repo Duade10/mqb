@@ -9,11 +9,12 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-def create_qr_token(listing_id: int) -> str:
+def create_qr_token(listing_id: int, require_consent: bool = True) -> str:
     payload: Dict[str, Any] = {
         "listing_id": listing_id,
         "exp": datetime.utcnow() + timedelta(minutes=settings.qr_token_expire_minutes),
         "type": "listing_qr",
+        "require_consent": require_consent,
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
