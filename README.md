@@ -70,6 +70,12 @@ Use `.env.example` for local development (SQLite). For production deployments wi
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+Run database migrations in the running container:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api alembic upgrade head
+```
+
 ### Production (Postgres)
 
 ```bash
