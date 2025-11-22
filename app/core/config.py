@@ -17,10 +17,8 @@ class Settings(BaseSettings):
     public_frontend_base_url: Optional[str] = Field(
         "https://web.mrhost.top", env="PUBLIC_FRONTEND_BASE_URL"
     )
-    cors_allow_origins: list[str] = Field(
-        default_factory=lambda: ["https://web.mrhost.top"],
-        env="CORS_ALLOW_ORIGINS",
-    )
+    cors_allow_origins: list[str] = Field(default_factory=list, env="CORS_ALLOW_ORIGINS")
+    cors_allow_origin_regex: str = Field(".*", env="CORS_ALLOW_ORIGIN_REGEX")
 
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
     qr_token_expire_minutes: int = Field(60 * 24, env="QR_TOKEN_EXPIRE_MINUTES")
