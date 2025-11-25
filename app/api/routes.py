@@ -12,12 +12,10 @@ from app.api.routers.admin import users as admin_users
 from app.api.routers.public import consent as public_consent
 from app.api.routers.public import guide as public_guide
 from app.api.routers.public import health as public_health
-from app.api.routers.public import qr as public_qr
 
 router = APIRouter()
 
 router.include_router(public_health.router)
-router.include_router(public_qr.router)
 router.include_router(public_consent.router)
 router.include_router(public_guide.router)
 
