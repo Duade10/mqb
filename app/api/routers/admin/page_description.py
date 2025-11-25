@@ -41,7 +41,9 @@ def create_page_description(
     payload: PageDescriptionCreate, db: Session = Depends(get_db)
 ) -> PageDescriptionOut:
     description = PageDescription(
-        listing_id=payload.listing_id, is_active=payload.is_active
+        listing_id=payload.listing_id,
+        specific_item=payload.specific_item,
+        is_active=payload.is_active,
     )
     db.add(description)
     db.flush()
@@ -68,6 +70,8 @@ def update_page_description(
         raise HTTPException(status_code=404, detail="Page description not found")
     if payload.is_active is not None:
         description.is_active = payload.is_active
+    if payload.specific_item is not None:
+        description.specific_item = payload.specific_item
     if payload.translations is not None:
         _sync_page_description_translations(
             description, [t.dict() for t in payload.translations], db
@@ -86,12 +90,29 @@ def update_page_description(
 def list_page_descriptions(
     listing_id: int, db: Session = Depends(get_db)
 ) -> list[PageDescriptionOut]:
-    return (
-        db.query(PageDescription)
-        .filter(PageDescription.listing_id == listing_id)
-        .order_by(PageDescription.created_at.desc())
-        .all()
-    )
+    return _list_page_descriptions(listing_id, None, db)
+
+
+def _list_page_descriptions(
+    listing_id: int, specific_item: str | None, db: Session
+) -> list[PageDescriptionOut]:
+    query = db.query(PageDescription).filter(PageDescription.listing_id == listing_id)
+    if specific_item is None:
+        query = query.filter(PageDescription.specific_item.is_(None))
+    else:
+        query = query.filter(PageDescription.specific_item == specific_item)
+    return query.order_by(PageDescription.created_at.desc()).all()
+
+
+@router.get(
+    "/admin/listings/{listing_id}/{specific_item}/page-descriptions",
+    response_model=list[PageDescriptionOut],
+    tags=["Admin"],
+)
+def list_specific_page_descriptions(
+    listing_id: int, specific_item: str, db: Session = Depends(get_db)
+) -> list[PageDescriptionOut]:
+    return _list_page_descriptions(listing_id, specific_item, db)
 
 
 @router.delete("/admin/page-descriptions/{description_id}", tags=["Admin"])

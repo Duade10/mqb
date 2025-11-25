@@ -38,7 +38,11 @@ def _sync_tutorial_translations(tutorial: Tutorial, translations: list[dict], db
 
 @router.post("/admin/tutorials", response_model=TutorialOut, tags=["Admin"])
 def create_tutorial(payload: TutorialCreate, db: Session = Depends(get_db)) -> TutorialOut:
-    tutorial = Tutorial(listing_id=payload.listing_id, is_active=payload.is_active)
+    tutorial = Tutorial(
+        listing_id=payload.listing_id,
+        specific_item=payload.specific_item,
+        is_active=payload.is_active,
+    )
     db.add(tutorial)
     db.flush()
     _sync_tutorial_translations(tutorial, [t.dict() for t in payload.translations], db)
@@ -56,6 +60,8 @@ def update_tutorial(
         raise HTTPException(status_code=404, detail="Tutorial not found")
     if payload.is_active is not None:
         tutorial.is_active = payload.is_active
+    if payload.specific_item is not None:
+        tutorial.specific_item = payload.specific_item
     if payload.translations is not None:
         _sync_tutorial_translations(tutorial, [t.dict() for t in payload.translations], db)
     db.add(tutorial)
@@ -64,9 +70,31 @@ def update_tutorial(
     return tutorial
 
 
-@router.get("/admin/listings/{listing_id}/tutorials", response_model=list[TutorialOut], tags=["Admin"])
+def _list_tutorials(listing_id: int, specific_item: str | None, db: Session) -> list[TutorialOut]:
+    query = db.query(Tutorial).filter(Tutorial.listing_id == listing_id)
+    if specific_item is None:
+        query = query.filter(Tutorial.specific_item.is_(None))
+    else:
+        query = query.filter(Tutorial.specific_item == specific_item)
+    return query.all()
+
+
+@router.get(
+    "/admin/listings/{listing_id}/tutorials", response_model=list[TutorialOut], tags=["Admin"]
+)
 def list_tutorials(listing_id: int, db: Session = Depends(get_db)) -> list[TutorialOut]:
-    return db.query(Tutorial).filter(Tutorial.listing_id == listing_id).all()
+    return _list_tutorials(listing_id, None, db)
+
+
+@router.get(
+    "/admin/listings/{listing_id}/{specific_item}/tutorials",
+    response_model=list[TutorialOut],
+    tags=["Admin"],
+)
+def list_specific_tutorials(
+    listing_id: int, specific_item: str, db: Session = Depends(get_db)
+) -> list[TutorialOut]:
+    return _list_tutorials(listing_id, specific_item, db)
 
 
 @router.delete("/admin/tutorials/{tutorial_id}", tags=["Admin"])

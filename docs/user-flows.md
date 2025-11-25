@@ -81,8 +81,9 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
      ```json
      {"items": [{"id": 1, "question": "...", "answer": "...", "links": [{"label": "Help", "url": "https://..."}], "language_code": "es"}]}
      ```
+   - For specific guest experiences (parking, microwave, etc.), the SPA can scope content via `GET /public/listings/{listing_id}/{specific_item}/faqs`.
 2. Load tutorials: `GET /public/listings/{listing_id}/tutorials?language={code}`
-   - Same fallback behavior; only active tutorials are included.
+   - Same fallback behavior; only active tutorials are included. Use `GET /public/listings/{listing_id}/{specific_item}/tutorials` for item-specific walkthroughs.
    - Response:
      ```json
      {
@@ -99,7 +100,7 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
      }
      ```
 3. Load page descriptions: `GET /public/listings/{listing_id}/page-descriptions?language={code}`
-   - Optional long-form copy (welcome text, house rules, etc.) with the same language fallback behavior.
+   - Optional long-form copy (welcome text, house rules, etc.) with the same language fallback behavior. Use `GET /public/listings/{listing_id}/{specific_item}/page-descriptions` for per-item landing pages.
 4. Shared errors: `404 Listing not found` if the listing context is invalid.
 
 ---
@@ -172,15 +173,18 @@ All subsequent admin APIs require an authenticated user and cannot be called unt
    - `POST /admin/faqs` to create (includes `listing_id`, `is_active`, and translations) with optional per-translation `links` entries `{ "label", "url" }`.
    - `PUT /admin/faqs/{faq_id}` to toggle active flag or replace translation set.
    - `GET /admin/listings/{listing_id}/faqs` to review.
+   - `GET /admin/listings/{listing_id}/{specific_item}/faqs` for item-specific FAQ sets.
    - `DELETE /admin/faqs/{faq_id}` to remove.
 
 5. **Tutorials**
    - `POST /admin/tutorials`, `PUT /admin/tutorials/{id}`, `GET /admin/listings/{listing_id}/tutorials`, `DELETE /admin/tutorials/{id}` with similar semantics to FAQs but translation entries include `title`, `description`, `video_url`, and optional `thumbnail_url`.
+   - Item-specific guides are available via `GET /admin/listings/{listing_id}/{specific_item}/tutorials`.
 
 6. **Page descriptions**
    - `POST /admin/page-descriptions` to create long-form listing copy (optional) with translations.
    - `PUT /admin/page-descriptions/{id}` to toggle `is_active` or replace translations.
    - `GET /admin/listings/{listing_id}/page-descriptions` to review.
+   - `GET /admin/listings/{listing_id}/{specific_item}/page-descriptions` to retrieve content for a specific QR context.
    - `DELETE /admin/page-descriptions/{id}` to remove.
 
 ### 2.4 Audit and reporting
