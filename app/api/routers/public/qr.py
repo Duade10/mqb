@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -29,3 +31,18 @@ def resolve_qr(token: str, db: Session = Depends(get_db)) -> Response:
         listing_path = f"{listing_path}?require_consent=true"
     redirect_url = f"{base_url}{listing_path}" if base_url else listing_path
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
+@router.get("/qr", tags=["Public"])
+def generate_qr_from_url(url: str | None = None) -> RedirectResponse:
+    if not url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A URL parameter is required to generate a QR code",
+        )
+
+    qr_url = (
+        "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
+        f"{quote(url, safe='')}"
+    )
+    return RedirectResponse(url=qr_url)
