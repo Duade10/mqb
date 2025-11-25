@@ -22,6 +22,7 @@ class FAQTranslationCreate(FAQTranslationBase):
 
 class FAQBase(BaseModel):
     listing_id: int
+    specific_item: Optional[str] = None
     is_active: bool = True
 
 
@@ -31,6 +32,7 @@ class FAQCreate(FAQBase):
 
 class FAQUpdate(BaseModel):
     is_active: Optional[bool] = None
+    specific_item: Optional[str] = None
     translations: Optional[list[FAQTranslationCreate]] = None
 
 
@@ -46,6 +48,7 @@ class FAQTranslationOut(FAQTranslationBase):
 class FAQOut(BaseModel):
     id: int
     listing_id: int
+    specific_item: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime

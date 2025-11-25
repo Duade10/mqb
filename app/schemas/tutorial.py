@@ -18,6 +18,7 @@ class TutorialTranslationCreate(TutorialTranslationBase):
 
 class TutorialBase(BaseModel):
     listing_id: int
+    specific_item: Optional[str] = None
     is_active: bool = True
 
 
@@ -27,6 +28,7 @@ class TutorialCreate(TutorialBase):
 
 class TutorialUpdate(BaseModel):
     is_active: Optional[bool] = None
+    specific_item: Optional[str] = None
     translations: Optional[list[TutorialTranslationCreate]] = None
 
 
@@ -42,6 +44,7 @@ class TutorialTranslationOut(TutorialTranslationBase):
 class TutorialOut(BaseModel):
     id: int
     listing_id: int
+    specific_item: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime

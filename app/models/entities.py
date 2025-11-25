@@ -96,6 +96,7 @@ class FAQ(Base, TimestampMixin):
 
     id = Column(Integer, primary_key=True)
     listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    specific_item = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     listing = relationship("Listing", back_populates="faqs")
@@ -124,6 +125,7 @@ class Tutorial(Base, TimestampMixin):
 
     id = Column(Integer, primary_key=True)
     listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    specific_item = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     listing = relationship("Listing", back_populates="tutorials")
@@ -175,6 +177,7 @@ class PageDescription(Base, TimestampMixin):
 
     id = Column(Integer, primary_key=True)
     listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    specific_item = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     listing = relationship("Listing", back_populates="page_descriptions")

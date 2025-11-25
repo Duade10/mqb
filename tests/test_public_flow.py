@@ -119,6 +119,50 @@ def _create_page_description(db: Session, listing: Listing) -> PageDescription:
     return description
 
 
+def _create_specific_guide_content(
+    db: Session, listing: Listing, specific_item: str
+) -> None:
+    faq = FAQ(listing_id=listing.id, is_active=True, specific_item=specific_item)
+    db.add(faq)
+    db.flush()
+    db.add(
+        FAQTranslation(
+            faq=faq,
+            language_code="en",
+            question="Parking?",
+            answer="Follow signs.",
+            links=[{"label": "Map", "url": "https://example.com/map"}],
+        )
+    )
+    tutorial = Tutorial(
+        listing_id=listing.id, is_active=True, specific_item=specific_item
+    )
+    db.add(tutorial)
+    db.flush()
+    db.add(
+        TutorialTranslation(
+            tutorial=tutorial,
+            language_code="en",
+            title="Parking tutorial",
+            description="Video",
+            video_url="https://example.com/parking",
+        )
+    )
+    description = PageDescription(
+        listing_id=listing.id, is_active=True, specific_item=specific_item
+    )
+    db.add(description)
+    db.flush()
+    db.add(
+        PageDescriptionTranslation(
+            page_description=description,
+            language_code="en",
+            body="Parking instructions",
+        )
+    )
+    db.commit()
+
+
 def test_qr_token_signing_and_validation(db_session: Session):
     listing = _create_listing(db_session)
     token = create_qr_token(listing.id)
@@ -197,3 +241,51 @@ def test_faq_and_tutorial_language_fallback(client: SimpleTestClient, db_session
     assert description_response.status_code == 200
     description_data = description_response.json()
     assert description_data["items"][0]["language_code"] == "en"
+
+
+def test_specific_item_routes(client: SimpleTestClient, db_session: Session):
+    listing = _create_listing(db_session)
+    _create_published_consent(db_session, listing)
+    _create_guide_content(db_session, listing)
+    _create_page_description(db_session, listing)
+    _create_specific_guide_content(db_session, listing, "parking")
+
+    faq_response = client.get(f"/public/listings/{listing.id}/faqs")
+    assert faq_response.status_code == 200
+    assert all(item["question"] != "Parking?" for item in faq_response.json()["items"])
+
+    faq_specific_response = client.get(
+        f"/public/listings/{listing.id}/parking/faqs"
+    )
+    assert faq_specific_response.status_code == 200
+    faq_specific_items = faq_specific_response.json()["items"]
+    assert faq_specific_items[0]["question"] == "Parking?"
+
+    tutorial_response = client.get(f"/public/listings/{listing.id}/tutorials")
+    assert tutorial_response.status_code == 200
+    assert all(
+        item["title"] != "Parking tutorial"
+        for item in tutorial_response.json()["items"]
+    )
+
+    tutorial_specific_response = client.get(
+        f"/public/listings/{listing.id}/parking/tutorials"
+    )
+    assert tutorial_specific_response.status_code == 200
+    assert tutorial_specific_response.json()["items"][0]["title"] == "Parking tutorial"
+
+    description_response = client.get(f"/public/listings/{listing.id}/page-descriptions")
+    assert description_response.status_code == 200
+    assert all(
+        item["body"] != "Parking instructions"
+        for item in description_response.json()["items"]
+    )
+
+    description_specific_response = client.get(
+        f"/public/listings/{listing.id}/parking/page-descriptions"
+    )
+    assert description_specific_response.status_code == 200
+    assert (
+        description_specific_response.json()["items"][0]["body"]
+        == "Parking instructions"
+    )

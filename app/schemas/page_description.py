@@ -15,6 +15,7 @@ class PageDescriptionTranslationCreate(PageDescriptionTranslationBase):
 
 class PageDescriptionBase(BaseModel):
     listing_id: int
+    specific_item: Optional[str] = None
     is_active: bool = True
 
 
@@ -24,6 +25,7 @@ class PageDescriptionCreate(PageDescriptionBase):
 
 class PageDescriptionUpdate(BaseModel):
     is_active: Optional[bool] = None
+    specific_item: Optional[str] = None
     translations: Optional[list[PageDescriptionTranslationCreate]] = None
 
 
@@ -39,6 +41,7 @@ class PageDescriptionTranslationOut(PageDescriptionTranslationBase):
 class PageDescriptionOut(BaseModel):
     id: int
     listing_id: int
+    specific_item: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime

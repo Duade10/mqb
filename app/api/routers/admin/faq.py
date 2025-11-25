@@ -36,7 +36,11 @@ def _sync_faq_translations(faq: FAQ, translations: list[dict], db: Session) -> N
 
 @router.post("/admin/faqs", response_model=FAQOut, tags=["Admin"])
 def create_faq(payload: FAQCreate, db: Session = Depends(get_db)) -> FAQOut:
-    faq = FAQ(listing_id=payload.listing_id, is_active=payload.is_active)
+    faq = FAQ(
+        listing_id=payload.listing_id,
+        specific_item=payload.specific_item,
+        is_active=payload.is_active,
+    )
     db.add(faq)
     db.flush()
     _sync_faq_translations(faq, [t.dict() for t in payload.translations], db)
@@ -52,6 +56,8 @@ def update_faq(faq_id: int, payload: FAQUpdate, db: Session = Depends(get_db)) -
         raise HTTPException(status_code=404, detail="FAQ not found")
     if payload.is_active is not None:
         faq.is_active = payload.is_active
+    if payload.specific_item is not None:
+        faq.specific_item = payload.specific_item
     if payload.translations is not None:
         _sync_faq_translations(faq, [t.dict() for t in payload.translations], db)
     db.add(faq)
@@ -60,9 +66,29 @@ def update_faq(faq_id: int, payload: FAQUpdate, db: Session = Depends(get_db)) -
     return faq
 
 
+def _list_faqs(listing_id: int, specific_item: str | None, db: Session) -> list[FAQOut]:
+    query = db.query(FAQ).filter(FAQ.listing_id == listing_id)
+    if specific_item is None:
+        query = query.filter(FAQ.specific_item.is_(None))
+    else:
+        query = query.filter(FAQ.specific_item == specific_item)
+    return query.all()
+
+
 @router.get("/admin/listings/{listing_id}/faqs", response_model=list[FAQOut], tags=["Admin"])
 def list_faqs(listing_id: int, db: Session = Depends(get_db)) -> list[FAQOut]:
-    return db.query(FAQ).filter(FAQ.listing_id == listing_id).all()
+    return _list_faqs(listing_id, None, db)
+
+
+@router.get(
+    "/admin/listings/{listing_id}/{specific_item}/faqs",
+    response_model=list[FAQOut],
+    tags=["Admin"],
+)
+def list_specific_faqs(
+    listing_id: int, specific_item: str, db: Session = Depends(get_db)
+) -> list[FAQOut]:
+    return _list_faqs(listing_id, specific_item, db)
 
 
 @router.delete("/admin/faqs/{faq_id}", tags=["Admin"])
