@@ -1,6 +1,7 @@
 from logging.config import fileConfig
 
 import sys
+import os
 from pathlib import Path
 
 from alembic import context
@@ -8,7 +9,6 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app.db.session import DATABASE_URL
 from app.models import Base
 
 config = context.config
@@ -16,7 +16,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+database_url = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_offline() -> None:

@@ -46,6 +46,26 @@ class Listing(Base, TimestampMixin):
         back_populates="listing",
         cascade="all, delete-orphan",
     )
+    specific_items = relationship(
+        "SpecificItem", back_populates="listing", cascade="all, delete-orphan"
+    )
+
+
+class SpecificItem(Base, TimestampMixin):
+    __tablename__ = "specific_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    listing_id = Column(
+        Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+    )
+    name = Column(String(255), nullable=False)
+    slug = Column(String(255), nullable=False)
+
+    listing = relationship("Listing", back_populates="specific_items")
+
+    __table_args__ = (
+        UniqueConstraint("listing_id", "slug", name="uq_specific_item_slug"),
+    )
 
 
 class ConsentTemplateStatusEnum(str, Enum):

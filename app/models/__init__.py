@@ -16,6 +16,7 @@ from app.models.entities import (
     Listing,
     PageDescription,
     PageDescriptionTranslation,
+    SpecificItem,
     Tutorial,
     TutorialTranslation,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "Listing",
     "PageDescription",
     "PageDescriptionTranslation",
+    "SpecificItem",
     "Tutorial",
     "TutorialTranslation",
 ]
