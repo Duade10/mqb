@@ -9,6 +9,10 @@ class SpecificItemBase(BaseModel):
     slug: str
 
 
+class SpecificItemCreate(SpecificItemBase):
+    pass
+
+
 class SpecificItemUpdate(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None

@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin
 from app.db.session import get_db
 from app.models import Listing, SpecificItem
-from app.schemas.specific_item import SpecificItemOut, SpecificItemUpdate
+from app.schemas.specific_item import (
+    SpecificItemCreate,
+    SpecificItemOut,
+    SpecificItemUpdate,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 
@@ -38,6 +42,36 @@ def _get_specific_item_or_404(
 def list_specific_items(listing_id: int, db: Session = Depends(get_db)) -> list[SpecificItemOut]:
     _get_listing_or_404(listing_id, db)
     return db.query(SpecificItem).filter(SpecificItem.listing_id == listing_id).all()
+
+
+@router.post(
+    "/admin/listings/{listing_id}/items",
+    response_model=SpecificItemOut,
+    tags=["Admin"],
+)
+def create_specific_item(
+    listing_id: int, payload: SpecificItemCreate, db: Session = Depends(get_db)
+) -> SpecificItemOut:
+    _get_listing_or_404(listing_id, db)
+    existing = (
+        db.query(SpecificItem)
+        .filter(
+            SpecificItem.listing_id == listing_id,
+            SpecificItem.slug == payload.slug,
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A specific item with this slug already exists",
+        )
+
+    item = SpecificItem(listing_id=listing_id, name=payload.name, slug=payload.slug)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.get(
