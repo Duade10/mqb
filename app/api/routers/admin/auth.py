@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError
 from typing import Any
 from uuid import uuid4
@@ -56,6 +56,13 @@ router = APIRouter(tags=["Admin"])
 settings = get_settings()
 
 
+def _ensure_aware_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    normalized = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return normalized.astimezone(timezone.utc)
+
+
 def _log_event(
     db: Session, event_type: str, user: AdminUser | None, request: Request, details: Any | None = None
 ) -> None:
@@ -82,7 +89,7 @@ def _issue_tokens(
         user_id=user.id,
         token_hash=hash_token(refresh_token),
         family_id=family_id or uuid4().hex,
-        expires_at=datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
     )
     db.add(refresh_record)
     db.flush()
@@ -95,7 +102,7 @@ def _revoke_refresh_family(db: Session, family_id: str) -> None:
         .filter(AdminRefreshToken.family_id == family_id, AdminRefreshToken.revoked_at.is_(None))
         .all()
     )
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for token in tokens:
         token.revoked_at = now
 
@@ -207,7 +214,7 @@ async def login_for_tokens(
                 _log_event(db, "login_failed_totp", user, request, {"reason": "invalid_recovery"})
                 db.commit()
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid recovery code")
-            recovery.used_at = datetime.utcnow()
+            recovery.used_at = datetime.now(timezone.utc)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -215,7 +222,7 @@ async def login_for_tokens(
             )
 
     access_token, refresh_token, _ = _issue_tokens(db, user)
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     _log_event(db, "login_success", user, request)
     db.commit()
     return TokenPair(
@@ -232,7 +239,8 @@ def refresh_tokens(payload: RefreshRequest, request: Request, db: Session = Depe
     if not stored:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
-    if stored.revoked_at or stored.expires_at < datetime.utcnow():
+    stored_expires_at = _ensure_aware_utc(stored.expires_at)
+    if stored.revoked_at or (stored_expires_at and stored_expires_at < datetime.now(timezone.utc)):
         _revoke_refresh_family(db, stored.family_id)
         db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired or revoked")
@@ -244,7 +252,7 @@ def refresh_tokens(payload: RefreshRequest, request: Request, db: Session = Depe
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     new_access, new_refresh, new_record = _issue_tokens(db, user, family_id=stored.family_id)
-    stored.revoked_at = datetime.utcnow()
+    stored.revoked_at = datetime.now(timezone.utc)
     stored.replaced_by_id = new_record.id
     _log_event(db, "refresh", user, request)
     db.commit()
@@ -288,7 +296,7 @@ def create_invite(
     expires_hours = payload.expires_in_hours or settings.invite_expire_hours
     invite = AdminInvite(
         email=payload.email.lower(),
-        expires_at=datetime.utcnow() + timedelta(hours=expires_hours),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=expires_hours),
         created_by_id=current_admin.id,
     )
     db.add(invite)
@@ -303,7 +311,8 @@ def register_admin(payload: RegisterRequest, request: Request, db: Session = Dep
     invite = db.query(AdminInvite).filter(AdminInvite.code == payload.invite_code).first()
     if not invite or invite.is_revoked:
         raise HTTPException(status=status.HTTP_400_BAD_REQUEST, detail="Invalid invite code")
-    if invite.used_at or invite.expires_at < datetime.utcnow():
+    invite_expires_at = _ensure_aware_utc(invite.expires_at)
+    if invite.used_at or (invite_expires_at and invite_expires_at < datetime.now(timezone.utc)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite expired")
     if invite.email and invite.email.lower() != payload.email.lower():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite email mismatch")
@@ -322,7 +331,7 @@ def register_admin(payload: RegisterRequest, request: Request, db: Session = Dep
     db.add(user)
     db.flush()
 
-    invite.used_at = datetime.utcnow()
+    invite.used_at = datetime.now(timezone.utc)
     invite.used_by_id = user.id
     _log_event(db, "invite_used", user, request, {"invite_code": invite.code})
     db.commit()
@@ -341,7 +350,7 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
         reset = AdminPasswordResetToken(
             user_id=user.id,
             token_hash=hash_token(token_value),
-            expires_at=datetime.utcnow() + timedelta(minutes=settings.password_reset_expire_minutes),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_expire_minutes),
         )
         db.add(reset)
         _log_event(db, "password_reset_requested", user, request)
@@ -369,10 +378,11 @@ def reset_password(payload: PasswordResetSubmit, request: Request, db: Session =
         .filter(AdminPasswordResetToken.token_hash == token_hash)
         .first()
     )
+    reset_expires_at = _ensure_aware_utc(reset_token.expires_at) if reset_token else None
     if (
         not reset_token
         or reset_token.used_at is not None
-        or reset_token.expires_at < datetime.utcnow()
+        or (reset_expires_at and reset_expires_at < datetime.now(timezone.utc))
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
 
@@ -380,15 +390,15 @@ def reset_password(payload: PasswordResetSubmit, request: Request, db: Session =
     _validate_password(payload.password)
 
     user.hashed_password = get_password_hash(payload.password)
-    user.password_changed_at = datetime.utcnow()
-    reset_token.used_at = datetime.utcnow()
+    user.password_changed_at = datetime.now(timezone.utc)
+    reset_token.used_at = datetime.now(timezone.utc)
     # revoke specific tokens for the user
     user_tokens = (
         db.query(AdminRefreshToken)
         .filter(AdminRefreshToken.user_id == user.id, AdminRefreshToken.revoked_at.is_(None))
         .all()
     )
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for token in user_tokens:
         token.revoked_at = now
 
@@ -459,7 +469,7 @@ def disable_2fa(
             .first()
         )
         if recovery:
-            recovery.used_at = datetime.utcnow()
+            recovery.used_at = datetime.now(timezone.utc)
             valid = True
 
     if not valid:
