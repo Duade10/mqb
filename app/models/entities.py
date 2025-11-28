@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
@@ -23,9 +23,14 @@ def json_type():
 
 
 class TimestampMixin:
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     updated_at = Column(
-        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -242,7 +247,11 @@ class AdminUser(Base, TimestampMixin):
     role = Column(String(50), default=AdminRoleEnum.ADMIN.value, nullable=False)
     totp_secret = Column(String(64), nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False)
-    password_changed_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    password_changed_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
     invites_created = relationship("AdminInvite", back_populates="created_by", foreign_keys="AdminInvite.created_by_id")
